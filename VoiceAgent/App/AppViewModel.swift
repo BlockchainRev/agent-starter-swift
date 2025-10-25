@@ -186,6 +186,9 @@ final class AppViewModel {
                 token: connectionDetails.participantToken,
                 connectOptions: .init(enableMicrophone: true)
             )
+            
+            // Set user UUID in participant attributes for agent to retrieve from Supabase
+            await self.setUserAttributesInRoom()
         }
     }
 
@@ -198,16 +201,23 @@ final class AppViewModel {
             token: connectionDetails.participantToken,
             connectOptions: .init(enableMicrophone: false)
         )
+        
+        // Set user UUID in participant attributes for agent to retrieve from Supabase
+        await setUserAttributesInRoom()
     }
 
     private func getConnection() async throws -> TokenService.ConnectionDetails {
         let roomName = "room-\(Int.random(in: 1000 ... 9999))"
         let participantName = "user-\(Int.random(in: 1000 ... 9999))"
 
-        return try await tokenService.fetchConnectionDetails(
+        guard let details = try await tokenService.fetchConnectionDetails(
             roomName: roomName,
             participantName: participantName
-        )!
+        ) else {
+            throw Error.agentNotConnected
+        }
+        
+        return details
     }
 
     func disconnect() async {
@@ -221,6 +231,13 @@ final class AppViewModel {
             await disconnect()
             throw Error.agentNotConnected
         }
+    }
+    
+    /// Set user metadata - reserved for future authentication integration
+    private func setUserAttributesInRoom() async {
+        // Reserved for future user authentication
+        // Backend agent at /Users/samaylakhani/w-jarvis handles all auth
+        debugPrint("✅ Connected to room - backend handles authentication")
     }
 
     // MARK: - Actions

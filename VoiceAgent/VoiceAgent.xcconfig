@@ -1,4 +1,4 @@
-#include ".env.xcconfig"
+// #include ".env.xcconfig"  // Commented out - create this file if needed
 
 PRODUCT_BUNDLE_IDENTIFIER=com.livekit.example.VoiceAssistant
 DEVELOPMENT_TEAM = 76TVFCUKK7;

@@ -1,4 +1,5 @@
 import Foundation
+import CryptoKit
 
 /// An example service for fetching LiveKit authentication tokens
 ///
@@ -32,8 +33,10 @@ actor TokenService {
         return try await fetchConnectionDetailsFromSandbox(roomName: roomName, participantName: participantName)
     }
 
-    private let hardcodedServerUrl: String? = nil
-    private let hardcodedToken: String? = nil
+    // LiveKit credentials from w-jarvis backend
+    private let hardcodedServerUrl: String? = "wss://jarvis-p4fs5144.livekit.cloud"
+    private let apiKey: String = "APIt4YTzRzdvVej"
+    private let apiSecret: String = "TeU2L4vPqqeVWB2ni2mIAO3s4p7Effn4nPeGVP2VB0kE"
 
     private let sandboxId: String? = {
         if let value = Bundle.main.object(forInfoDictionaryKey: "LiveKitSandboxId") as? String {
@@ -80,9 +83,12 @@ actor TokenService {
     }
 
     private func fetchHardcodedConnectionDetails(roomName: String, participantName: String) -> ConnectionDetails? {
-        guard let serverUrl = hardcodedServerUrl, let token = hardcodedToken else {
+        guard let serverUrl = hardcodedServerUrl else {
             return nil
         }
+
+        // Generate token using LiveKit credentials
+        let token = generateToken(roomName: roomName, participantName: participantName)
 
         return .init(
             serverUrl: serverUrl,
@@ -90,5 +96,60 @@ actor TokenService {
             participantName: participantName,
             participantToken: token
         )
+    }
+    
+    private func generateToken(roomName: String, participantName: String) -> String {
+        // Generate JWT token for LiveKit
+        // Using the w-jarvis LiveKit credentials
+        let header = ["alg": "HS256", "typ": "JWT"]
+        let now = Date()
+        let exp = now.addingTimeInterval(3600) // 1 hour expiry
+        
+        let claims: [String: Any] = [
+            "exp": Int(exp.timeIntervalSince1970),
+            "iss": apiKey,
+            "nbf": Int(now.timeIntervalSince1970),
+            "sub": participantName,
+            "video": [
+                "room": roomName,
+                "roomJoin": true,
+                "canPublish": true,
+                "canSubscribe": true
+            ]
+        ]
+        
+        // Create JWT
+        let headerData = try! JSONSerialization.data(withJSONObject: header)
+        let claimsData = try! JSONSerialization.data(withJSONObject: claims)
+        
+        let headerB64 = headerData.base64EncodedString()
+            .replacingOccurrences(of: "+", with: "-")
+            .replacingOccurrences(of: "/", with: "_")
+            .replacingOccurrences(of: "=", with: "")
+        
+        let claimsB64 = claimsData.base64EncodedString()
+            .replacingOccurrences(of: "+", with: "-")
+            .replacingOccurrences(of: "/", with: "_")
+            .replacingOccurrences(of: "=", with: "")
+        
+        let message = "\(headerB64).\(claimsB64)"
+        
+        // Sign with HMAC-SHA256
+        let signature = hmacSHA256(message: message, key: apiSecret)
+        
+        return "\(message).\(signature)"
+    }
+    
+    private func hmacSHA256(message: String, key: String) -> String {
+        let messageData = message.data(using: .utf8)!
+        let keyData = SymmetricKey(data: key.data(using: .utf8)!)
+        
+        let signature = HMAC<SHA256>.authenticationCode(for: messageData, using: keyData)
+        let signatureData = Data(signature)
+        
+        return signatureData.base64EncodedString()
+            .replacingOccurrences(of: "+", with: "-")
+            .replacingOccurrences(of: "/", with: "_")
+            .replacingOccurrences(of: "=", with: "")
     }
 }
